@@ -52,6 +52,9 @@ Open the URL shown in the console (typically `https://localhost:5001`).
 - `Properties/launchSettings.json` - local launch profiles
 - `Tests/` - unit tests (if present)
 
+<img width="728" height="708" alt="image" src="https://github.com/user-attachments/assets/37f52681-7b53-435c-bddc-cbc227b5e64d" />
+
+
 ## Contributing
 Contributions are welcome. Please follow repository conventions and open issues or pull requests against `main`.
 
