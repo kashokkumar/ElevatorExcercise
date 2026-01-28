@@ -1,0 +1,214 @@
+﻿@page
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Elevator Live Dashboard</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        .top-row {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 20px;
+        }
+
+        .section {
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+
+        .tables-row {
+            display: flex;
+            gap: 30px;
+        }
+
+        table {
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #999;
+            padding: 6px;
+            text-align: center;
+        }
+
+        .moving {
+            background: lightyellow;
+        }
+
+        .stopped {
+            background: lightgreen;
+        }
+
+        .idle {
+            background: lightgray;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>🚀 Elevator Live Dashboard</h2>
+
+    <!-- ================= TOP CONTROLS ================= -->
+    <div class="top-row">
+
+        <div class="section">
+            <h3>Floor Calls (Outside)</h3>
+            <div id="buttons"></div>
+        </div>
+
+        <div class="section">
+            <h3>Inside Lift – Destination</h3>
+            <div id="inside"></div>
+        </div>
+
+    </div>
+
+    <!-- ================= TABLES ================= -->
+    <div class="tables-row">
+
+        <!-- Lift Status -->
+        <div class="section">
+            <h3>Lift Status</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Lift</th>
+                        <th>Floor</th>
+                        <th>Direction</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="lifts"></tbody>
+            </table>
+        </div>
+
+        <!-- Matrix -->
+        <div class="section">
+            <h3>Floor × Lift Matrix</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Floor</th>
+                        <th>L1</th>
+                        <th>L2</th>
+                        <th>L3</th>
+                        <th>L4</th>
+                    </tr>
+                </thead>
+                <tbody id="matrix"></tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+
+    <script>
+        const floors = 10;
+        const liftsCount = 4;
+
+        // -------- FLOOR CALL BUTTONS --------
+        const buttons = document.getElementById("buttons");
+
+        for (let i = floors; i >= 1; i--) {
+            const row = document.createElement("div");
+            row.innerText = "Floor " + i + " ";
+
+            if (i < floors) {
+                const up = document.createElement("button");
+                up.innerText = "Up";
+                up.onclick = () => fetch(`/call/${i}/up`, { method: "POST" });
+                row.appendChild(up);
+            }
+
+            if (i > 1) {
+                const down = document.createElement("button");
+                down.innerText = "Down";
+                down.onclick = () => fetch(`/call/${i}/down`, { method: "POST" });
+                row.appendChild(down);
+            }
+
+            buttons.appendChild(row);
+        }
+
+        // -------- INSIDE LIFT BUTTONS --------
+        const inside = document.getElementById("inside");
+
+        for (let liftId = 1; liftId <= liftsCount; liftId++) {
+            const block = document.createElement("div");
+            block.innerHTML = "<b>Lift " + liftId + "</b><br/>";
+
+            for (let f = floors; f >= 1; f--) {
+                const btn = document.createElement("button");
+                btn.innerText = f;
+                btn.style.margin = "2px";
+                btn.onclick = () => fetch(`/dest/${liftId}/${f}`, { method: "POST" });
+                block.appendChild(btn);
+            }
+
+            inside.appendChild(block);
+        }
+
+        // -------- SIGNALR --------
+        const conn = new signalR.HubConnectionBuilder()
+            .withUrl("/lifthub")
+            .build();
+
+        conn.on("update", lifts => {
+            renderLiftTable(lifts);
+            renderMatrix(lifts);
+        });
+
+        conn.start();
+
+        function renderLiftTable(lifts) {
+            const body = document.getElementById("lifts");
+            body.innerHTML = "";
+
+            lifts.forEach(l => {
+                body.innerHTML += `
+                    <tr>
+                        <td>${l.id}</td>
+                        <td>${l.floor}</td>
+                        <td>${l.direction}</td>
+                        <td class="${l.status.toLowerCase()}">${l.status}</td>
+                    </tr>`;
+            });
+        }
+
+        function renderMatrix(lifts) {
+            const body = document.getElementById("matrix");
+            body.innerHTML = "";
+
+            for (let floor = floors; floor >= 1; floor--) {
+                let row = `<tr><td>${floor}</td>`;
+
+                for (let id = 1; id <= liftsCount; id++) {
+                    const lift = lifts.find(l => l.id === id);
+
+                    if (lift.floor === floor) {
+                        row += `<td class="${lift.status.toLowerCase()}">
+                                    ${lift.status === "Moving" ? lift.direction : "■"}
+                                </td>`;
+                    } else {
+                        row += `<td></td>`;
+                    }
+                }
+
+                row += "</tr>";
+                body.innerHTML += row;
+            }
+        }
+    </script>
+
+</body>
+</html>
